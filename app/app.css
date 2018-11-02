@@ -1,0 +1,98 @@
+/* app css stylesheet */
+
+html, body {
+  background-color: #000928;
+  color: #fff;
+}
+
+a {
+  color: #fff;
+}
+
+.menu {
+  list-style: none;
+  border-bottom: 0.1em solid black;
+  margin-bottom: 2em;
+  padding: 0 0 0.5em;
+}
+
+.menu:before {
+  content: "[";
+}
+
+.menu:after {
+  content: "]";
+}
+
+.menu > li {
+  display: inline;
+}
+
+.menu > li + li:before {
+  content: "|";
+  padding-right: 0.3em;
+}
+
+.radar-chart-serie0 {
+  fill:rgb(10, 87, 244)!important;
+  fill-opacity:.1!important;
+  stroke:rgb(10, 87, 244)!important;
+}
+
+.radar-chart-serie1 {
+  fill:rgb(142, 237, 39)!important;
+  fill-opacity:.1!important;
+  stroke:rgb(142, 237, 39)!important;
+}
+
+.radarArea, .radarStroke {
+  pointer-events:none;
+}
+
+.legend-arrow {
+  fill: #8eed27;
+}
+
+.legend-arrow--down {
+  transform: translateX(10px) rotate(90deg);
+  fill: #fd4a4a;
+}
+.legend-arrow--hidden {
+  display: none !important;
+}
+
+.ysa-radar-node text {
+  fill: #fff;
+  font-family: 'Roboto', sans-serif;
+  font-size: 12px;
+}
+
+.ysa-radar-node tspan {
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: -0.09px;
+}
+
+.ysa-radar-circle {
+  fill: #fff;
+  cursor: pointer;
+}
+
+.ysa-radar-progress {
+  fill: #333A53;
+  height: 2px;
+}
+
+.ysa-radar-progress__rect {
+  height: 2px;
+}
+
+.ysa-radar-average {
+  font-size: 70px;
+  font-family: 'Roboto Condensed', sans-serif;
+  font-weight: bold;
+  letter-spacing: -0.43px;
+  fill: #fff;
+  text-anchor: middle;
+}
+
