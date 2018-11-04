@@ -21,7 +21,6 @@ angular.module('myApp.version.rating-directive', [])
             dotRadius: 5, // The size of the colored circles of each blog
             opacityCircles: 0.1, // The opacity of the circles of each blob
             strokeWidth: 2, // The width of the stroke around each blob
-            roundStrokes: false, // If true the area and stroke will follow a round path (cardinal-closed)
             color: null, // Color function
             radians: 2 * Math.PI,
             factor: 1,
@@ -46,37 +45,47 @@ angular.module('myApp.version.rating-directive', [])
             },
             link: function (scope, element, attrs) {
 
-                var config = angular.extend({}, defaultConfig, scope.config || {});
                 var chartEl = d3.select(element[0]);
+                var config = angular.extend({}, defaultConfig, scope.config || {});
+                var classNames = {
+                    chart: 'radar' + config.id,
+                    group: 'ysa-radar-group',
+                    axisWrapper: 'ysa-radar-axis-wrapper',
+                    glowCircle: 'glow-circle',
+                    average: 'ysa-radar-average',
+                    gradient: 'ysa-radar-gradient',
+                    levelsWrapper: 'ysa-radar-levels',
+                    level: 'ysa-radar-levels__item',
+                    legendsWrapper: 'ysa-radar-legends',
+                    legend: 'ysa-radar-legends__item',
+                    hidden: 'ysa-radar-hidden',
+                    arrow: 'legend-arrow',
+                    progressWrapper: 'ysa-radar-progress-wrapper',
+                    progress: 'ysa-radar-progress',
+                    circlesWrapper: 'ysa-radar-circles',
+                    circle: 'ysa-radar-circles__item',
+                    areaWrapper: 'ysa-radar-area-wrapper',
+                    area: 'ysa-radar-area'
+                };
 
-                config.color = d3.scale.ordinal().range(scope.colors);
-
-                // If the supplied maxValue is smaller than the actual one, replace by the max in the data
-                // var maxValue = Math.max(config.maxValue, d3.max(scope.data, function (i) {
-                //     return d3.max(i.map(function (o) {
-                //         return o.percent;
-                //     }))
-                // }));
+                var previousData = [];
+                var getColor = d3.scale.ordinal().range(config.colors);
                 var maxValue = 100; // TODO: Узнать как считать
+                var total = 0; // The number of different axes
+                var radius = Math.min(config.w / 2, config.h / 2); // Radius of the outermost circle
+                var Format = d3.format('%'); // Percentage formatting
+                var angleSlice = 0; // The width in radians of each "slice"
+
+                var svg;
                 var axis;
-                var allAxis, // Names of each axis
-                    total = 0, // The number of different axes
-                    radius = Math.min(config.w / 2, config.h / 2), // Radius of the outermost circle
-                    Format = d3.format('%'), // Percentage formatting
-                    angleSlice = 0; // The width in radians of each "slice"
+                var radarGroup;
+                var averageText;
+                var filter;
                 var areaWrapper;
+                var areas;
                 var legendsWrapper;
-
-                // The radial line function
-                var radarLine = d3.svg.line.radial()
-                    .interpolate("linear")
-                    .radius(function (d) {
-                        return rScale(d.percent);
-                    })
-                    .angle(function (d, i) {
-                        return i * angleSlice;
-                    });
-
+                var progressWrapper;
+                var axisGrid;
 
                 // Scale for the radius
                 var rScale = d3.scale.linear()
@@ -87,200 +96,99 @@ angular.module('myApp.version.rating-directive', [])
                     .range([0, radius])
                     .domain([0, config.domain]);
 
+                // The radial line function
+                var radarLine = d3.svg.line.radial()
+                    .interpolate('cardinal-closed')
+                    .tension(config.tension)
+                    .radius(function (d) {
+                        return rScale(d.percent);
+                    })
+                    .angle(function (d, i) {
+                        return i * angleSlice;
+                    });
 
                 // Initiate the radar chart SVG
-                var svg = chartEl.append("svg")
-                    .attr("width", config.w + config.margin.left + config.margin.right + 100)
-                    .attr("height", config.h + config.margin.top + config.margin.bottom + 100)
-                    .attr("class", "radar" + config.id);
-
+                svg = chartEl.append('svg')
+                    .attr('class', classNames.chart)
+                    .attr('width', config.w + config.margin.left + config.margin.right + 100)
+                    .attr('height', config.h + config.margin.top + config.margin.bottom + 100);
 
                 // Append a g element
-                var g = svg.append("g")
-                    .attr('class', 'ysa-radar-group')
-                    .attr("transform", "translate(" + (config.w / 2 + config.margin.left + 50) + "," + (config.h / 2 + config.margin.top + 50) + ")");
+                radarGroup = svg.append('g')
+                    .attr('class', classNames.group)
+                    .attr('transform', 'translate(' + (config.w / 2 + config.margin.left + 50) + ',' + (config.h / 2 + config.margin.top + 50) + ')');
 
                 // Filter for the outside glow
-                var filter = g.append("defs")
-                    .append("radialGradient")
-                    .attr("id", "glow")
-                    .attr("x1", "50%")
-                    .attr("y1", "100%")
-                    .attr("x2", "50%")
-                    .attr("y2", "100%");
+                filter = radarGroup.append('defs')
+                    .append('radialGradient')
+                    .attr('class', classNames.gradient).attr('id', 'glow')
+                    .attr('x1', '50%').attr('y1', '100%')
+                    .attr('x2', '50%').attr('y2', '100%');
 
                 filter.append("stop")
-                    .attr("offset", "50%")
-                    .attr("stop-color", "#2E354E")
-                    .attr("stop-opacity", 1);
+                    .attr('class', classNames.gradient + '__first')
+                    .attr('offset', '50%');
 
-                filter.append("stop")
-                    .attr("offset", "130%")
-                    .attr("stop-color", "rgba(0,9,40,0.00)")
-                    .attr("stop-opacity", 1);
+                filter.append('stop')
+                    .attr('class', classNames.gradient + '__second')
+                    .attr('offset', '130%');
 
+                radarGroup.append('circle')
+                    .attr('class', classNames.glowCircle)
+                    .attr('r', radius + 30)
+                    .style('fill-opacity', '0.4')
+                    .style('fill', 'url(#glow)');
 
                 // Wrapper for the grid & axes
-                var axisGrid = g.append("g").attr("class", "axisWrapper");
+                axisGrid = radarGroup
+                    .append('g')
+                    .attr('class', classNames.axisWrapper);
 
-                g.append("circle")
-                    .attr("class", "glow-circle")
-                    .attr("r", radius + 30)
-                    .style("fill-opacity", "0.4")
-                    .style("fill", "url(#glow)");
-
-
+                // Append average
                 if (config.average) {
-                    g.append("text")
-                        .attr("class", "ysa-radar-average")
-                        .attr("dy", "0.3em")
+                    averageText = radarGroup.append('text')
+                        .attr('class', classNames.average)
+                        .attr('dy', '0.3em')
                         .text(scope.average);
                 }
-
 
                 // Draw the background circles
                 var drawBackgroundCircles = function () {
                     // Clear all levels
-                    g.selectAll(".levels").remove();
+                    radarGroup.selectAll('.' + classNames.levelsWrapper).remove();
 
-                    var levels = g.append('g')
-                        .attr('class', 'levels');
+                    var levels = radarGroup.append('g')
+                        .attr('class', classNames.levelsWrapper);
 
                     for (var j = 0; j < config.levels; j++) {
                         var levelFactor = config.factor * radius * ((j + 1) / config.levels);
                         var level = levels.append('g')
-                            .attr('class', 'level')
+                            .attr('class', classNames.level)
                             .attr('data-level', j);
 
-                        level.selectAll(".line")
-                            .data(allAxis)
+                        level.selectAll('line')
+                            .data(scope.data[0])
                             .enter()
-                            .append("svg:line")
-                            .attr("x1", function (d, i) {
+                            .append('svg:line')
+                            .attr('x1', function (d, i) {
                                 return levelFactor * (1 - config.factor * Math.sin(i * config.radians / total));
                             })
-                            .attr("y1", function (d, i) {
+                            .attr('y1', function (d, i) {
                                 return levelFactor * (1 - config.factor * Math.cos(i * config.radians / total));
                             })
-                            .attr("x2", function (d, i) {
+                            .attr('x2', function (d, i) {
                                 return levelFactor * (1 - config.factor * Math.sin((i + 1) * config.radians / total));
                             })
-                            .attr("y2", function (d, i) {
+                            .attr('y2', function (d, i) {
                                 return levelFactor * (1 - config.factor * Math.cos((i + 1) * config.radians / total));
                             })
-                            .attr("class", "line")
-                            .style("stroke", "grey")
-                            .style("stroke-opacity", "1")
-                            .style("stroke-width", "0.35px")
-                            .attr("transform", "translate(" + (-levelFactor) + ", " + (-levelFactor) + ")");
+                            .attr('transform', 'translate(' + (-levelFactor) + ', ' + (-levelFactor) + ')');
                     }
                 };
 
-
-                var getX = function (i) {
-                    return rScaleLegend(maxValue * config.labelFactor) * Math.cos(angleSlice * i - Math.PI / 2)
-                };
-                var getY = function (i) {
-                    return rScaleLegend(maxValue * config.labelFactor) * Math.sin(angleSlice * i - Math.PI / 2);
-                };
-
-                var drawLegend = function () {
-                    g.select(".ysa-radar-legends").remove();
-
-                    legendsWrapper = g.append("g").attr("class", "ysa-radar-legends");
-
-                    var node = legendsWrapper.selectAll(".ysa-radar-node")
-                        .data(scope.data[0])
-                        .enter().append("g")
-                        .attr("class", "ysa-radar-node")
-                        .attr("data-node", function (d, i) {
-                            return i;
-                        })
-                        .attr('transform', function (d, i) {
-                            return 'translate(' + getX(i) + ',' + getY(i) + ')';
-                        });
-
-                    // Определяем откуда должен начинаться текст, если это средний элемент или первый, и четное количество элементов
-                    // то ставим middle, что бы отрисовывалось посередине
-                    node.append("text")
-                        .attr('text-anchor', function (d, i) {
-                            var anchor = 'start';
-                            var isFirstOrMiddle = Math.floor(scope.data[0].length / 2) === i || 0 === i;
-                            if (isFirstOrMiddle && scope.data[0].length % 2 === 0) {
-                                anchor = 'middle';
-                            } else {
-                                anchor = getX(i) >= 0 ? 'start' : 'end'
-                            }
-                            return anchor;
-                        })
-                        .text(function (d) {
-                            return d.title;
-                        })
-                        .append('tspan')
-                        .attr('dx', '.5em')
-                        .text(function (d) {
-                            return d.percent.toFixed(2) + '%'
-                        });
-
-
-                    // Рисуем стрелки, в зависимости от изменения процентов
-                    if (config.arrows) {
-                        node.append("g")
-                            .classed('legend-arrow--hidden', function (d) {
-                                return d.change === 0;
-                            })
-                            .attr('transform', function (d, i) {
-                                var text = this.parentNode.querySelector('text');
-                                var textWidth = getX(i) >= 0 ? text.getBoundingClientRect().width + 10 : 10;
-                                var isFirstOrMiddle = Math.floor(scope.data[0].length / 2) === i || 0 === i;
-                                if (isFirstOrMiddle && scope.data[0].length % 2 === 0) {
-                                    textWidth = textWidth / 2;
-                                }
-                                return 'translate(' + textWidth + ',-11)'
-                            })
-                            .append("path")
-                            .attr('d', 'M10 0H3c-.6 0-1 .4-1 1s.4 1 1 1h4.6l-7 7L2 10.4l7-7V8c0 .6.4 1 1 1s1-.4 1-1V1c0-.6-.4-1-1-1z')
-                            .attr('class', 'legend-arrow')
-                            .classed('legend-arrow--down', function (d) {
-                                return d.change < 0;
-                            })
-                            .attr("width", 16)
-                            .attr("height", 16);
-                    }
-
-                    // Рисуем progress bar, в случае, если config.compare === true,
-                    // то изменяем значение при наведении на точку
-                    if (config.compare) {
-                        var progressWrapper = node.append('g')
-                            .attr('class', 'ysa-radar-progress-wrapper')
-                            .attr('transform', function (d, i) {
-                                var text = this.parentNode.querySelector('text');
-                                var textWidth = getX(i) >= 0 ? 0 : -(text.getBoundingClientRect().width) + 1;
-                                var isFirstOrMiddle = Math.floor(scope.data[0].length / 2) === i || 0 === i;
-                                if (isFirstOrMiddle && scope.data[0].length % 2 === 0) {
-                                    textWidth = -(text.getBoundingClientRect().width / 2);
-                                }
-                                return 'translate(' + textWidth + ',15)'
-                            });
-
-                        progressWrapper.append('rect')
-                            .attr('class', 'ysa-radar-progress')
-                            .attr('width', config.labelIndicatorWidth)
-                            .attr('x', 0);
-
-                        progressWrapper.append('rect')
-                            .attr('class', 'ysa-radar-progress__rect')
-                            .attr('width', 0)
-                            .attr('x', 0);
-
-                        updateProgressBar(node);
-                    }
-                };
-
-
-                function updateProgressBar(node, percent) {
-                    var rect = node.selectAll('.ysa-radar-progress__rect');
-                    var textPercent = node.selectAll('tspan');
+                var updateProgressBar = function (legend, percent) {
+                    var rect = legend.selectAll('.ysa-radar-progress__rect');
+                    var textPercent = legend.selectAll('tspan');
 
                     rect.attr('fill', function (d) {
                         var p = percent;
@@ -312,185 +220,238 @@ angular.module('myApp.version.rating-directive', [])
                     }
                 }
 
+                var drawLegend = function () {
+                    var scaleLegend = rScaleLegend(maxValue * config.labelFactor);
+                    var getCoord = function (i) {
+                        return {
+                            x: scaleLegend * Math.cos(angleSlice * i - Math.PI / 2),
+                            y: scaleLegend * Math.sin(angleSlice * i - Math.PI / 2)
+                        }
+                    }
+
+                    radarGroup.select('.' + classNames.legendsWrapper).remove();
+                    legendsWrapper = radarGroup.append('g').attr('class', classNames.legendsWrapper);
+
+                    var legend = legendsWrapper.selectAll('.' + classNames.legend)
+                        .data(scope.data[0])
+                        .enter().append('g')
+                        .attr('class', classNames.legend)
+                        .attr('data-legend', function (d, i) {
+                            return i
+                        })
+                        .attr('transform', function (d, i) {
+                            return 'translate(' + getCoord(i).x + ',' + getCoord(i).y + ')'
+                        });
+
+                    // Определяем откуда должен начинаться текст, если это средний элемент или первый, и четное количество элементов
+                    // то ставим middle, что бы текст отрисовался посередине
+                    legend.append('text')
+                        .attr('text-anchor', function (d, i) {
+                            var anchor = 'start';
+                            var isFirstOrMiddle = Math.floor(scope.data[0].length / 2) === i || 0 === i;
+                            if (isFirstOrMiddle && scope.data[0].length % 2 === 0) {
+                                anchor = 'middle';
+                            } else {
+                                anchor = getCoord(i).x >= 0 ? 'start' : 'end'
+                            }
+                            return anchor;
+                        })
+                        .text(function (d) {
+                            return d.title;
+                        })
+                        .append('tspan')
+                        .attr('dx', '.5em')
+                        .text(function (d) {
+                            return d.percent.toFixed(2) + '%'
+                        });
+
+
+                    // Рисуем стрелки, в зависимости от изменения процентов
+                    if (config.arrows) {
+                        legend.append('g')
+                            .classed(classNames.hidden, function (d) {
+                                return d.change === 0;
+                            })
+                            .attr('transform', function (d, i) {
+                                var text = this.parentNode.querySelector('text');
+                                var textWidth = getCoord(i).x >= 0 ? text.getBoundingClientRect().width + 10 : 10;
+                                var isFirstOrMiddle = Math.floor(scope.data[0].length / 2) === i || 0 === i;
+                                if (isFirstOrMiddle && scope.data[0].length % 2 === 0) {
+                                    textWidth = textWidth / 2;
+                                }
+                                return 'translate(' + textWidth + ',-11)'
+                            })
+                            .append('path')
+                            .attr('d', 'M10 0H3c-.6 0-1 .4-1 1s.4 1 1 1h4.6l-7 7L2 10.4l7-7V8c0 .6.4 1 1 1s1-.4 1-1V1c0-.6-.4-1-1-1z')
+                            .attr('class', classNames.arrow)
+                            .classed(classNames.arrow + '--down', function (d) {
+                                return d.change < 0;
+                            });
+                    }
+
+                    // Рисуем progress bar, в случае, если config.compare === true,
+                    // то изменяем значение при наведении на точку
+                    progressWrapper = legend.append('g')
+                        .attr('class', classNames.progressWrapper)
+                        .attr('transform', function (d, i) {
+                            var text = this.parentNode.querySelector('text');
+                            var textWidth = getCoord(i).x >= 0 ? 0 : -(text.getBoundingClientRect().width) + 1;
+                            var isFirstOrMiddle = Math.floor(scope.data[0].length / 2) === i || 0 === i;
+                            if (isFirstOrMiddle && scope.data[0].length % 2 === 0) {
+                                textWidth = -(text.getBoundingClientRect().width / 2);
+                            }
+                            return 'translate(' + textWidth + ',15)'
+                        });
+
+                    progressWrapper.append('rect')
+                        .attr('class', classNames.progress)
+                        .attr('width', config.labelIndicatorWidth)
+                        .attr('x', 0);
+
+                    progressWrapper.append('rect')
+                        .attr('class', classNames.progress + '__rect')
+                        .attr('width', function(d, i) {
+                            return previousData[0] && previousData[0][i] ? previousData[0][i].percent * (config.labelIndicatorWidth / 100) : 0
+                        })
+                        .attr('x', 0);
+
+                    updateProgressBar(legend);
+
+                    // Скрываем все progress bars и проценты
+                    if (config.compare) {
+                        progressWrapper.attr('opacity', 0);
+                        legendsWrapper.selectAll('tspan').style('opacity', 0);
+                    }
+                };
+
 
                 // Create the straight lines radiating outward from the center
                 var drawAxis = function () {
-                    // Clear all axis, legends and lines
-                    axisGrid.selectAll(".axis").remove();
-                    axisGrid.selectAll(".line").remove();
-                    axisGrid.selectAll(".legend").remove();
-
-                    axis = axisGrid.selectAll(".axis")
-                        .attr("class", "axis")
-                        .data(allAxis)
+                    var scaleLegend = rScaleLegend(maxValue * 1.1);
+                    axisGrid.selectAll(classNames.axisWrapper).remove();
+                    axis = axisGrid.selectAll(classNames.axisWrapper)
+                        .data(scope.data[0])
                         .enter()
-                        .append("g");
-
-                    // Append the lines
-                    axis.append("line")
-                        .attr("class", "line")
-                        .attr("x1", 0)
-                        .attr("y1", 0)
-                        .attr("x2", function (d, i) {
-                            return rScaleLegend(maxValue * 1.1) * Math.cos(angleSlice * i - Math.PI / 2);
+                        .append('svg:line')
+                        .attr('x1', 0)
+                        .attr('y1', 0)
+                        .attr('x2', function (d, i) {
+                            return scaleLegend * Math.cos(angleSlice * i - Math.PI / 2);
                         })
-                        .attr("y2", function (d, i) {
-                            return rScaleLegend(maxValue * 1.1) * Math.sin(angleSlice * i - Math.PI / 2);
-                        })
-                        .style("stroke", "rgb(38, 46, 71)")
-                        .style("stroke-width", "1px")
-                        .style("stroke-dasharray", "3px");
+                        .attr('y2', function (d, i) {
+                            return scaleLegend * Math.sin(angleSlice * i - Math.PI / 2);
+                        });
                 };
 
                 var drawCircles = function () {
-                    axisGrid.selectAll(".ysa-radar-circles").remove();
+                    radarGroup.selectAll('.' + classNames.circlesWrapper).remove();
 
-                    var circlesWrapper = areaWrapper.append('g')
-                        .attr('class', 'ysa-radar-circles');
+                    var circlesWrapper = radarGroup.append('g')
+                        .attr('class', classNames.circlesWrapper);
 
-                    // Скрываем проценты и progress bar
-                    legendsWrapper.selectAll('tspan')
-                        .attr('opacity', 0);
-                    legendsWrapper.selectAll('.ysa-radar-progress-wrapper')
-                        .attr('opacity', 0);
+                    var mouseoverHandler = function (d, i) {
+                        // Ищем ноду по индексу, и показываем ее
+                        var legend = legendsWrapper.select('.' + classNames.legend + '[data-legend="' + i + '"]');
+
+                        legend.select('tspan')
+                            .transition()
+                            .duration(200)
+                            .style('opacity', 1);
+
+                        legend.select('.' + classNames.progressWrapper)
+                            .transition()
+                            .duration(200)
+                            .style('opacity', 1);
+
+                        updateProgressBar(legend, d.percent);
+
+                        d3.select(this)
+                            .transition()
+                            .duration(200)
+                            .style('opacity', 1);
+                    }
+
+                    var mouseoutHandler = function (d, i) {
+                        // Ищем ноду по индексу, и скрываем ее
+                        var legend = legendsWrapper.select('.' + classNames.legend + '[data-legend="' + i + '"]');
+
+                        legend.select('tspan')
+                            .transition()
+                            .duration(200)
+                            .style('opacity', 0);
+
+                        legend.select('.' + classNames.progressWrapper)
+                            .transition()
+                            .duration(200)
+                            .style('opacity', 0);
+
+                        d3.select(this)
+                            .transition()
+                            .duration(200)
+                            .style('opacity', 0);
+                    }
 
                     // Рисуем точки на вершинах
-                    circlesWrapper.selectAll(".ysa-radar-circle")
-                        .data(function (d, i) {
-                            return d;
+                    circlesWrapper.selectAll('g')
+                        .data(scope.data)
+                        .enter().append('svg:g')
+                        .selectAll('.' + classNames.circle)
+                        .data(function (d) {
+                            return d
                         })
-                        .enter().append("circle")
-                        .attr("class", "ysa-radar-circle")
-                        .attr("r", config.dotRadius)
-                        .attr("cx", function (d, i) {
+                        .enter()
+                        .append('svg:circle')
+                        .attr('class', classNames.circle)
+                        .attr('r', config.dotRadius)
+                        .attr('cx', function (d, i) {
                             return rScale(d.percent) * Math.cos(angleSlice * i - Math.PI / 2);
                         })
-                        .attr("cy", function (d, i) {
+                        .attr('cy', function (d, i) {
                             return rScale(d.percent) * Math.sin(angleSlice * i - Math.PI / 2);
                         })
-                        .style("opacity", "0")
-                        .on("mouseover", function (d, i) {
-                            d3.select(this)
-                                .transition()
-                                .duration(200)
-                                .style('opacity', 1);
-
-                            // Ищем ноду по индексу, и показываем ее
-                            var node = legendsWrapper.select('.ysa-radar-node[data-node="' + i + '"]');
-
-                            node.select('tspan')
-                                .transition()
-                                .duration(200)
-                                .style('opacity', 1);
-
-                            node.select('.ysa-radar-progress-wrapper')
-                                .transition()
-                                .duration(200)
-                                .style('opacity', 1);
-
-                            updateProgressBar(node, d.percent);
-                        })
-                        .on('mouseout', function (d, i) {
-                            d3.select(this)
-                                .transition()
-                                .duration(200)
-                                .style('opacity', 0);
-
-                            // Ищем ноду по индексу, и скрываем ее
-                            var node = legendsWrapper.select('.ysa-radar-node[data-node="' + i + '"]');
-
-                            node.select('tspan')
-                                .transition()
-                                .duration(200)
-                                .style('opacity', 0);
-
-                            node.select('.ysa-radar-progress-wrapper')
-                                .transition()
-                                .duration(200)
-                                .style('opacity', 0);
-                        });
+                        .style('opacity', '0')
+                        .on('mouseover', mouseoverHandler)
+                        .on('mouseout', mouseoutHandler);
                 };
 
+                var drawArea = function () {
+                    radarGroup.selectAll('.' + classNames.areaWrapper).remove();
 
-                var tweenArea = function (d) {
-                    var interpolate = d3.svg.line.radial()
-                        .interpolate("linear-closed")
-                        .radius(function (d) {
-                            return rScale(d.percent);
+                    // Create a wrapper for the areas
+                    areaWrapper = radarGroup.selectAll('.' + classNames.areaWrapper)
+                        .data(scope.data)
+                        .enter().append('g')
+                        .attr('class', classNames.areaWrapper);
+
+                    // Append the backgrounds
+                    areaWrapper.append("path")
+                        .attr('class', classNames.area)
+                        .style('fill', function (d, i) {
+                            return getColor(i);
                         })
-                        .angle(function (d, i) {
-                            return i * angleSlice;
+                        .style('stroke', function (d, i) {
+                            return getColor(i);
+                        })
+                        .style('fill-opacity', config.opacityArea)
+                        .style('stroke-width', config.strokeWidth);
+
+
+                    areas = areaWrapper.selectAll('path')
+                        .transition()
+                        .duration(600)
+                        .attrTween('d', function (d, i) {
+                            var currentPath = previousData && previousData[i] ? radarLine(previousData[i]) : d3.select(this).attr('d');
+                            var newPath = radarLine(d);
+                            return d3.interpolatePath(currentPath, newPath);
                         });
-                    return function () {
-                        return interpolate(d);
-                    }
                 };
 
 
                 var update = function () {
-                    allAxis = (scope.data[0].map(function (i) {
-                        return {
-                            axis: i.title,
-                            value: i.percent
-                        }
-                    }));
-                    total = allAxis.length;
-                    angleSlice = Math.PI * 2 / total;
-
                     drawBackgroundCircles();
                     drawAxis();
                     drawLegend();
-
-                    if (config.roundStrokes) {
-                        radarLine
-                            .interpolate("cardinal-closed")
-                            .tension(config.tension);
-                    }
-
-
-                    // Clear all area wrappers
-                    g.selectAll(".ysa-radar-area-wrapper").remove();
-
-                    // Create a wrapper for the areas
-                    areaWrapper = g.selectAll(".ysa-radar-area-wrapper")
-                        .data(scope.data)
-                        .enter().append("g")
-                        .attr("class", "ysa-radar-area-wrapper");
-
-                    // Append the backgrounds
-                    areaWrapper.append("path")
-                        .attr("class", "ysa-radar-area")
-                        // .attr('d', function (d) {
-                        //     return radarLine(d);
-                        // })
-                        .style("fill", function (d, i) {
-                            return config.color(i);
-                        })
-                        .style("fill-opacity", config.opacityArea);
-
-                    // Create the outlines
-                    areaWrapper.append("path")
-                        .attr("class", "ysa-radar-area-stroke")
-                        .style("stroke-width", config.strokeWidth + "px")
-                        .attr("stroke", function (d, i) {
-                            return config.color(i);
-                        })
-                        .style("fill", "none");
-
-                    var tween = function (d) {
-                        return function () {
-                            return d3.interpolate(radarLine(d));
-                        }
-                    }
-
-                    areaWrapper.selectAll('path')
-                        .transition()
-                        .duration(12000)
-                        .attr('d', function (d) {
-                            return radarLine(d);
-                        });
-
-
+                    drawArea();
 
                     // Append the circlesm and append lines and value under legends on circle hover
                     if (config.compare && scope.data.length >= 2) {
@@ -499,9 +460,22 @@ angular.module('myApp.version.rating-directive', [])
                 };
 
                 // Redraw chart if data updated
-                scope.$watch('data', function (value) {
-                    console.log(value)
+                scope.$watch('data', function (value, prevValue) {
+                    if (!scope.data || !scope.data[0]) {
+                        throw new Error('Нет данных для построения графика');
+                        return false;
+                    }
+                    if (prevValue && prevValue.length) {
+                        previousData = prevValue;
+                    }
+                    total = scope.data[0].length;
+                    angleSlice = Math.PI * 2 / total;
                     update();
+                });
+
+                // Update average
+                scope.$watch('average', function (value) {
+                    averageText.text(value)
                 });
             }
         }

@@ -1,1 +1,5 @@
-<app-rating ng-if="radarData" data="radarData" config="radarChartOptions" colors="colors" average="10"></ysa-rating-chart>
+<button ng-click="update()">Update</button>
+
+<div class="ratings">
+    <app-rating ng-if="radarData" data="radarData" config="radarChartOptions" average="average"></app-rating>
+</div>

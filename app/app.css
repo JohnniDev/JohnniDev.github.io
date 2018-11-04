@@ -1,6 +1,7 @@
 /* app css stylesheet */
 
-html, body {
+html,
+body {
   background-color: #000928;
   color: #fff;
 }
@@ -11,7 +12,6 @@ a {
 
 .menu {
   list-style: none;
-  border-bottom: 0.1em solid black;
   margin-bottom: 2em;
   padding: 0 0 0.5em;
 }
@@ -24,56 +24,84 @@ a {
   content: "]";
 }
 
-.menu > li {
+.menu>li {
   display: inline;
 }
 
-.menu > li + li:before {
+.menu>li+li:before {
   content: "|";
   padding-right: 0.3em;
 }
 
+.ratings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .radar-chart-serie0 {
-  fill:rgb(10, 87, 244)!important;
-  fill-opacity:.1!important;
-  stroke:rgb(10, 87, 244)!important;
+  fill: rgb(10, 87, 244) !important;
+  fill-opacity: .1 !important;
+  stroke: rgb(10, 87, 244) !important;
 }
 
 .radar-chart-serie1 {
-  fill:rgb(142, 237, 39)!important;
-  fill-opacity:.1!important;
-  stroke:rgb(142, 237, 39)!important;
+  fill: rgb(142, 237, 39) !important;
+  fill-opacity: .1 !important;
+  stroke: rgb(142, 237, 39) !important;
 }
 
-.radarArea, .radarStroke {
-  pointer-events:none;
+.radarArea,
+.radarStroke {
+  pointer-events: none;
 }
 
 .legend-arrow {
   fill: #8eed27;
+  width: 16px;
+  height: 16px;
 }
 
 .legend-arrow--down {
   transform: translateX(10px) rotate(90deg);
   fill: #fd4a4a;
 }
-.legend-arrow--hidden {
-  display: none !important;
+
+.ysa-radar-gradient__first {
+  stop-color: #2E354E;
+  stop-opacity: 1;
 }
 
-.ysa-radar-node text {
+.ysa-radar-gradient__second {
+  stop-color: rgba(0, 9, 40, 0.00);
+  stop-opacity: 1;
+}
+
+.ysa-radar-axis-wrapper line {
+  stroke: #262e47;
+  stroke-width: 1px;
+  stroke-dasharray: 3px;
+}
+
+.ysa-radar-levels__item line {
+  stroke: grey;
+  stroke-opacity: 1;
+  stroke-width: 0.35px;
+}
+
+.ysa-radar-legends__item text {
   fill: #fff;
   font-family: 'Roboto', sans-serif;
   font-size: 12px;
 }
 
-.ysa-radar-node tspan {
+.ysa-radar-legends__item tspan {
   font-size: 14px;
   font-weight: bold;
   letter-spacing: -0.09px;
 }
 
-.ysa-radar-circle {
+.ysa-radar-circles__item {
   fill: #fff;
   cursor: pointer;
 }
@@ -96,3 +124,6 @@ a {
   text-anchor: middle;
 }
 
+.ysa-radar-hidden {
+  display: none !important;
+}

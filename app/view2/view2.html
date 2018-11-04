@@ -1,5 +1,5 @@
-<p>This is the partial for view 2.</p>
-<p>
-  Showing of 'interpolate' filter:
-  {{ 'Current version is v%VERSION%.' | interpolate }}
-</p>
+<button ng-click="update()">Update</button>
+
+<div class="ratings">
+    <app-rating ng-if="radarData" data="radarData" config="radarChartOptions" average="average"></app-rating>
+</div>
