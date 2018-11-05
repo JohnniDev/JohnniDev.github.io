@@ -48,7 +48,7 @@ angular.module('myApp.version.rating-directive', [])
                 var chartEl = d3.select(element[0]);
                 var config = angular.extend({}, defaultConfig, scope.config || {});
                 var classNames = {
-                    chart: 'radar' + config.id,
+                    chart: config.id || 'ysa-radar-chart',
                     group: 'ysa-radar-group',
                     axisWrapper: 'ysa-radar-axis-wrapper',
                     glowCircle: 'glow-circle',
@@ -107,11 +107,17 @@ angular.module('myApp.version.rating-directive', [])
                         return i * angleSlice;
                     });
 
+                var width = config.w + config.margin.left + config.margin.right + 100,
+                    height = config.h + config.margin.top + config.margin.bottom + 100;
+
                 // Initiate the radar chart SVG
                 svg = chartEl.append('svg')
                     .attr('class', classNames.chart)
-                    .attr('width', config.w + config.margin.left + config.margin.right + 100)
-                    .attr('height', config.h + config.margin.top + config.margin.bottom + 100);
+                    .attr('width', width)
+                    .attr('height', height)
+                    .attr('viewBox', '0 0 ' + width + ' ' + height)
+                    .attr('preserveAspectRatio', 'xMidYMin meet')
+                    .attr('style', 'max-width: 100%;');
 
                 // Append a g element
                 radarGroup = svg.append('g')
@@ -221,6 +227,7 @@ angular.module('myApp.version.rating-directive', [])
                 }
 
                 var drawLegend = function () {
+                    var centerOfArray = Math.floor(scope.data[0].length / 2);
                     var scaleLegend = rScaleLegend(maxValue * config.labelFactor);
                     var getCoord = function (i) {
                         return {
@@ -248,7 +255,7 @@ angular.module('myApp.version.rating-directive', [])
                     legend.append('text')
                         .attr('text-anchor', function (d, i) {
                             var anchor = 'start';
-                            var isFirstOrMiddle = Math.floor(scope.data[0].length / 2) === i || 0 === i;
+                            var isFirstOrMiddle = i === 0 || centerOfArray === i;
                             if (isFirstOrMiddle && scope.data[0].length % 2 === 0) {
                                 anchor = 'middle';
                             } else {
@@ -275,7 +282,7 @@ angular.module('myApp.version.rating-directive', [])
                             .attr('transform', function (d, i) {
                                 var text = this.parentNode.querySelector('text');
                                 var textWidth = getCoord(i).x >= 0 ? text.getBoundingClientRect().width + 10 : 10;
-                                var isFirstOrMiddle = Math.floor(scope.data[0].length / 2) === i || 0 === i;
+                                var isFirstOrMiddle = i === 0 || centerOfArray === i;
                                 if (isFirstOrMiddle && scope.data[0].length % 2 === 0) {
                                     textWidth = textWidth / 2;
                                 }
@@ -290,13 +297,13 @@ angular.module('myApp.version.rating-directive', [])
                     }
 
                     // Рисуем progress bar, в случае, если config.compare === true,
-                    // то изменяем значение при наведении на точку
+                    // то изменяем значение при наведении на точку (описано ниже)
                     progressWrapper = legend.append('g')
                         .attr('class', classNames.progressWrapper)
                         .attr('transform', function (d, i) {
                             var text = this.parentNode.querySelector('text');
                             var textWidth = getCoord(i).x >= 0 ? 0 : -(text.getBoundingClientRect().width) + 1;
-                            var isFirstOrMiddle = Math.floor(scope.data[0].length / 2) === i || 0 === i;
+                            var isFirstOrMiddle = i === 0 || centerOfArray === i;
                             if (isFirstOrMiddle && scope.data[0].length % 2 === 0) {
                                 textWidth = -(text.getBoundingClientRect().width / 2);
                             }
@@ -311,13 +318,15 @@ angular.module('myApp.version.rating-directive', [])
                     progressWrapper.append('rect')
                         .attr('class', classNames.progress + '__rect')
                         .attr('width', function(d, i) {
-                            return previousData[0] && previousData[0][i] ? previousData[0][i].percent * (config.labelIndicatorWidth / 100) : 0
+                            return previousData[0] && previousData[0][i] 
+                                ? previousData[0][i].percent * (config.labelIndicatorWidth / 100) 
+                                : 0;
                         })
                         .attr('x', 0);
 
                     updateProgressBar(legend);
 
-                    // Скрываем все progress bars и проценты
+                    // Скрываем все progress bars и проценты, если находимся в режиме сравнивания
                     if (config.compare) {
                         progressWrapper.attr('opacity', 0);
                         legendsWrapper.selectAll('tspan').style('opacity', 0);
